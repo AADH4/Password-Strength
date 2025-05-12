@@ -4,11 +4,10 @@ import joblib
 import requests
 import os
 import math
-import re
-import numpy as np
 import secrets
 import string
-
+from streamlit_extras.colored_header import colored_header  # For the gradient headers
+from streamlit_extras.add_vertical_space import add_vertical_space #for adding space
 # --- Define your entropy calculation function ---
 def calculate_entropy(password):
     if not password:
@@ -46,14 +45,19 @@ def predict_password_security(password, model_strength, model_crack_time):
 
     if predicted_strength < 0.2:
         strength_assessment = "Very Weak"
+        strength_color = "red"
     elif predicted_strength < 0.4:
         strength_assessment = "Weak"
+        strength_color = "orange"
     elif predicted_strength < 0.6:
         strength_assessment = "Medium"
+        strength_color = "yellow"
     elif predicted_strength < 0.8:
         strength_assessment = "Strong"
+        strength_color = "green"
     else:
         strength_assessment = "Very Strong"
+        strength_color = "darkgreen"  # More distinct for very strong
 
     predicted_crack_time_category = model_crack_time.predict(input_data)[0]
 
@@ -61,6 +65,7 @@ def predict_password_security(password, model_strength, model_crack_time):
         'strength': predicted_strength,
         'strength_percentage': f"{predicted_strength_percentage:.2f}%",
         'strength_assessment': strength_assessment,
+        'strength_color': strength_color, #added color
         'crack_time_category': predicted_crack_time_category
     }
 
@@ -82,11 +87,13 @@ def generate_random_password(length=12, use_uppercase=True, use_lowercase=True, 
     return ''.join(secrets.choice(characters) for _ in range(length))
 
 # --- Streamlit App ---
+st.set_page_config(page_title="Password Security Checker", page_icon="🔒") #Added a page config
 st.title("Password Security Checker & Generator")
+add_vertical_space(1) #added some space
 
 # --- Load Models ---
-STRENGTH_MODEL_URL = "https://drive.google.com/uc?id=1A1hZ0hylMhwhg_suKAj4UxaV9-CDME3Z&export=download"
-CRACK_TIME_MODEL_URL = "https://drive.google.com/uc?id=1v9OnTOnG9SQ7xQZO1RfrKJ_lgj13hCWM&export=download"
+STRENGTH_MODEL_URL = "YOUR_PUBLIC_URL_TO_model_strength_rf.joblib"  # Replace this!
+CRACK_TIME_MODEL_URL = "YOUR_PUBLIC_URL_TO_model_crack_time_clf.joblib"  # Replace this!
 STRENGTH_MODEL_PATH = "model_strength_rf.joblib"
 CRACK_TIME_MODEL_PATH = "model_crack_time_clf.joblib"
 
@@ -127,32 +134,45 @@ def load_models():
 model_strength_rf, model_crack_time_clf = load_models()
 
 # --- Password Checker Section ---
-st.subheader("Check Password Strength")
-password_input = st.text_input("Enter your password to analyze:", "")
+colored_header(
+    label="Check Password Strength",
+    description="Enter your password to analyze its security.",
+    color_name="blue-60",
+)
+password_input = st.text_input("Enter your password:", "", type="password") #Added type password
 
 if password_input and model_strength_rf and model_crack_time_clf:
     prediction = predict_password_security(password_input, model_strength_rf, model_crack_time_clf)
     st.subheader("Analysis Results:")
-    st.metric("Strength", f"{prediction['strength_percentage']}", f"({prediction['strength_assessment']})")
+    # Using markdown for colored strength assessment and applying color to the metric
+    st.markdown(
+        f"<span style='font-size: 20px; color: {prediction['strength_color']};'>{prediction['strength_assessment']}</span>",
+        unsafe_allow_html=True,
+    )
+    st.metric("Strength", prediction['strength_percentage'])
     st.write(f"**Estimated Crack Time:** {prediction['crack_time_category']}")
 
 # --- Random Password Generator Section ---
-st.subheader("Generate Secure Password")
+colored_header(
+    label="Generate Secure Password",
+    description="Customize and generate strong passwords.",
+    color_name="green-60",
+)
 col1, col2 = st.columns(2)
 with col1:
     password_length = st.slider("Password Length:", min_value=8, max_value=32, value=16)
 with col2:
     num_passwords = st.number_input("Number of Passwords to Generate:", min_value=1, max_value=5, value=1, step=1)
 
-use_uppercase = st.checkbox("Include Uppercase Letters", True)
-use_lowercase = st.checkbox("Include Lowercase Letters", True)
+use_uppercase = st.checkbox("Include Uppercase", True)
+use_lowercase = st.checkbox("Include Lowercase", True)
 use_digits = st.checkbox("Include Digits", True)
 use_symbols = st.checkbox("Include Symbols", True)
 
-if st.button("Generate Password(s)"):
+if st.button("Generate Password(s)", use_container_width=True): #made button wider
     for i in range(num_passwords):
         random_password = generate_random_password(password_length, use_uppercase, use_lowercase, use_digits, use_symbols)
-        st.write(f"**Generated Password {i+1}:** `{random_password}`")
+        st.success(f"Generated Password {i+1}: {random_password}") # used success
 
 st.markdown("---")
-st.markdown("A simple password security checker and generator.")
+st.markdown("A user-friendly tool for checking password security and generating strong, random passwords.")
